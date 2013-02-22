@@ -1,4 +1,4 @@
-# A Julia implementation of QuickCheck, a specification-based tester
+2# A Julia implementation of QuickCheck, a specification-based tester
 #
 # QuickCheck was originally written for Haskell by Koen Claessen and John Hughes
 # http://www.cse.chalmers.se/~rjmh/QuickCheck/
@@ -11,34 +11,33 @@ export quantproperty
 
 function lambda_arg_types(f::Function)
     if !isa(f.code, LambdaStaticData)
-        error("Property must be expressed as an anonymous function")
+        error("You must supply either an anonymous function with typed arguments or an array of argument types.")
     end
-    [eval(var.args[2]) for var in f.code.ast.args[1]]
+    Type[eval(var.args[2]) for var in f.code.ast.args[1]]
 end
 
 # Simple properties
-function property(f::Function, ntests)
-    typs = lambda_arg_types(f)
+function property(f::Function, typs::Vector, ntests)
     arggens = [size -> generator(typ, size) for typ in typs]
-    quantproperty(f, ntests, arggens...)
+    quantproperty(f, typs, ntests, arggens...)
 end
+property(f::Function, typs::Vector) = property(f, typs, 100)
+property(f::Function, ntests) = property(f, lambda_arg_types(f), ntests)
 property(f::Function) = property(f, 100)
 
 # Conditional properties
-function condproperty(f::Function, ntests, maxtests, argconds...)
-    typs = lambda_arg_types(f)
+function condproperty(f::Function, typs::Vector, ntests, maxtests, argconds...)
     arggens = [size -> generator(typ, size) for typ in typs]
     check_property(f, arggens, argconds, ntests, maxtests)
 end
+condproperty(f::Function, args...) = condproperty(f, lambda_arg_types(f), args...)
 
 # Quantified properties (custom generators)
-function quantproperty(f::Function, ntests, arggens...)
-    if !isa(f.code, LambdaStaticData)
-        error("Property must be expressed as an anonymous function")
-    end
-    argconds = [_->true for n in f.code.ast.args[1]]
+function quantproperty(f::Function, typs::Vector, ntests, arggens...)
+    argconds = [_->true for t in typs]
     check_property(f, arggens, argconds, ntests, ntests)
 end
+quantproperty(f::Function, args...) = quantproperty(f, lambda_arg_types(f), args...)
 
 function check_property(f::Function, arggens, argconds, ntests, maxtests)
     totalTests = 0
@@ -67,17 +66,19 @@ generator{T<:Signed}(::Type{T}, size) = convert(T, rand(-size:size))
 generator{T<:FloatingPoint}(::Type{T}, size) = convert(T, (rand()-0.5).*size)
 # This won't generate interesting UTF-8, but doing that is a Hard Problem
 generator{T<:String}(::Type{T}, size) = convert(T, randstring(size))
+
 generator(::Type{Any}, size) = error("Property variables cannot by typed Any.")
 
 # Generator for array types
 function generator{T,n}(::Type{Array{T,n}}, size)
-    reshape([generator(T, size) for x in 1:(size^n)], [size for i in 1:n]...)
+    dims = [rand(1:size) for i in 1:n]
+    reshape([generator(T, size) for x in 1:prod(dims)], dims...)
 end
 
 # Generator for composite types
 function generator{C}(::Type{C}, size)
     if !isa(C, CompositeKind)
-        error("Type $C is not a composite type.")
+        error("No generator defined for type $C.")
     end
     C([generator(T, size) for T in C.types]...)
 end

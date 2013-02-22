@@ -1,4 +1,4 @@
-2# A Julia implementation of QuickCheck, a specification-based tester
+# A Julia implementation of QuickCheck, a specification-based tester
 #
 # QuickCheck was originally written for Haskell by Koen Claessen and John Hughes
 # http://www.cse.chalmers.se/~rjmh/QuickCheck/
@@ -13,33 +13,33 @@ function lambda_arg_types(f::Function)
     if !isa(f.code, LambdaStaticData)
         error("You must supply either an anonymous function with typed arguments or an array of argument types.")
     end
-    Type[eval(var.args[2]) for var in f.code.ast.args[1]]
+    [eval(var.args[2]) for var in f.code.ast.args[1]]
 end
 
 # Simple properties
-function property(f::Function, typs::Vector, ntests)
+function property(prop::Function, typs::Vector, ntests)
     arggens = [size -> generator(typ, size) for typ in typs]
-    quantproperty(f, typs, ntests, arggens...)
+    quantproperty(prop, typs, ntests, arggens...)
 end
-property(f::Function, typs::Vector) = property(f, typs, 100)
-property(f::Function, ntests) = property(f, lambda_arg_types(f), ntests)
-property(f::Function) = property(f, 100)
+property(prop::Function, typs::Vector) = property(prop, typs, 100)
+property(prop::Function, ntests) = property(prop, lambda_arg_types(prop), ntests)
+property(prop::Function) = property(prop, 100)
 
 # Conditional properties
-function condproperty(f::Function, typs::Vector, ntests, maxtests, argconds...)
+function condproperty(prop::Function, typs::Vector, ntests, maxtests, argconds...)
     arggens = [size -> generator(typ, size) for typ in typs]
-    check_property(f, arggens, argconds, ntests, maxtests)
+    check_property(prop, arggens, argconds, ntests, maxtests)
 end
-condproperty(f::Function, args...) = condproperty(f, lambda_arg_types(f), args...)
+condproperty(prop::Function, args...) = condproperty(prop, lambda_arg_types(prop), args...)
 
 # Quantified properties (custom generators)
-function quantproperty(f::Function, typs::Vector, ntests, arggens...)
-    argconds = [_->true for t in typs]
-    check_property(f, arggens, argconds, ntests, ntests)
+function quantproperty(prop::Function, typs::Vector, ntests, arggens...)
+    argconds = [(_...)->true for t in typs]
+    check_property(prop, arggens, argconds, ntests, ntests)
 end
-quantproperty(f::Function, args...) = quantproperty(f, lambda_arg_types(f), args...)
+quantproperty(prop::Function, args...) = quantproperty(prop, lambda_arg_types(prop), args...)
 
-function check_property(f::Function, arggens, argconds, ntests, maxtests)
+function check_property(prop::Function, arggens, argconds, ntests, maxtests)
     totalTests = 0
     for i in 1:ntests
         goodargs = false
@@ -51,9 +51,9 @@ function check_property(f::Function, arggens, argconds, ntests, maxtests)
                 return
             end
             args = [arggen(div(i,2)+3) for arggen in arggens]
-            goodargs = all([apply(x[1], tuple(x[2])) for x in zip(argconds, args)])
+            goodargs = all([cond(args...) for cond in argconds])
         end
-        if !f(args...)
+        if !prop(args...)
             error("Falsifiable, after $i tests:\n$args")
         end
     end

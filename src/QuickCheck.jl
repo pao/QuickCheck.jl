@@ -77,7 +77,7 @@ end
 
 # Generator for composite types
 function generator{C}(::Type{C}, size)
-    if !isa(C, CompositeKind)
+    if C.types == ()
         error("No generator defined for type $C.")
     end
     C([generator(T, size) for T in C.types]...)

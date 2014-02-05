@@ -13,7 +13,7 @@ function lambda_arg_types(f::Function)
     if !isa(f.code, LambdaStaticData)
         error("You must supply either an anonymous function with typed arguments or an array of argument types.")
     end
-    [eval(var.args[2]) for var in f.code.ast.args[1]]
+    [eval(var.args[2]) for var in Base.uncompressed_ast(f.code).args[1]]
 end
 
 # Simple properties
